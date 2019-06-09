@@ -1,24 +1,16 @@
-TARGET := horizon_gs.out
+TARGET := a.out
 
-CC := gcc
-CFLAGS := -Wall -Wextra -Wpedantic -g
+CC := g++
+CFLAGS := -std=c++11 -Wall -Wextra -Wpedantic -g
 LIB_DIR := ~/.local/lib/
 INCLUDE_DIR := ~/.local/include/
-LIBS := -lapue -lhorizonlink
+LIBS := -lhorizonlink -lhidapi
 
-OS := $(shell uname)
-ifeq ($(OS), Linux)
-LIBS += -lpthread
-endif
+$(TARGET): main.cpp shared_buffer.h horizon_joystick.h
+	$(CC) $(CFLAGS) -o $@ $< $(addprefix -I , $(INCLUDE_DIR)) $(addprefix -L , $(LIB_DIR)) $(LIBS)
 
-$(TARGET): horizon_gs.c
-	$(CC) $(CFLAGS) -o $@ $^ $(addprefix -I , $(INCLUDE_DIR)) $(addprefix -L , $(LIB_DIR)) $(LIBS)
-
-.PHONY: test rebuild clean all
-test:
-	@echo $(OS)
-	@echo $(LIBS)
+.PHONY: rebuild clean all
 rebuild: clean all
 all: $(TARGET)
 clean:
-	rm -rf *.o *.out
+	rm -rf *.o *.out *.dSYM

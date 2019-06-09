@@ -1,13 +1,24 @@
-TARGET := test.out
+TARGET := a.out
 
-CC := g++
-CFLAGS := -std=c++11 -Wall -Wextra -Wpedantic -g
+CC := gcc
+CFLAGS := -Wall -Wextra -Wpedantic -g
+LIB_DIR := ~/.local/lib/
+INCLUDE_DIR := ~/.local/include/
+LIBS := -lapue -lhorizonlink
 
-$(TARGET): test.cpp
-	$(CC) $(CFLAGS) -o $@ $^
+OS := $(shell uname)
+ifeq ($(OS), Linux)
+LIBS += -lpthread
+endif
 
-.PHONY: rebuild clean all
+$(TARGET): test.c
+	$(CC) $(CFLAGS) -o $@ $^ $(addprefix -I , $(INCLUDE_DIR)) $(addprefix -L , $(LIB_DIR)) $(LIBS)
+
+.PHONY: test rebuild clean all
+test:
+	@echo $(OS)
+	@echo $(LIBS)
 rebuild: clean all
 all: $(TARGET)
 clean:
-	rm -rf *.o *.out
+	rm -rf *.o *.out *.dSYM

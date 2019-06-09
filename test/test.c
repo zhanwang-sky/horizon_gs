@@ -67,7 +67,7 @@ int main(int argc, char *argv[]) {
     int err;
 
     if (argc != 2) {
-        apue_err_quit("usage: ./horizon_gs.out dev");
+        apue_err_quit("usage: ./a.out dev");
     }
 
     if ((rx_fd = open(argv[1], O_RDONLY | O_NOCTTY | O_NONBLOCK)) < 0) {
