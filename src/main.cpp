@@ -14,7 +14,7 @@
 // utilities
 #include <hidapi/hidapi.h>
 #include "horizon_link.h"
-#include "horizon_joystick.h"
+#include "horizon_joysticks.h"
 #include "shared_buffer.h"
 
 using namespace std;
