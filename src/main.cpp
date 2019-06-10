@@ -5,7 +5,6 @@
 // common
 #include <atomic>
 #include <condition_variable>
-#include <exception>
 #include <mutex>
 #include <thread>
 // Unix
@@ -38,19 +37,13 @@ atomic<int> g_hid_status(0);
 // buffers
 char cli_buf[CMD_BUF_LEN];
 char pipe_name[FILE_NAME_LEN];
-uint8_t hid_raw_buf[HID_RAW_BUF_LEN];
+XboxOneJS::raw_type xbox_raw_buf;
 SharedBuffer sbus_shared_buf(sizeof(hlink_sbus_t));
-
-void xbox_one_adaptor(const uint8_t *raw_buf, hlink_sbus_t *sbus) {
-    sbus->channel[0] = (raw_buf[7] << 8) | raw_buf[6];
-    sbus->channel[1] = (raw_buf[13] << 8) | raw_buf[12];
-    sbus->channel[2] = (raw_buf[9] << 8) | raw_buf[8];
-    sbus->channel[3] = (raw_buf[11] << 8) | raw_buf[10];
-}
 
 void thr_hid(void) {
     hid_device *hid_handle;
     int bytes_read;
+    XboxOneJS xbox_one;
 
     while (true) {
         g_hid_mtx.lock();
@@ -60,22 +53,23 @@ void thr_hid(void) {
 
         while (true) {
             try {
-                bytes_read = hid_read(hid_handle, hid_raw_buf, sizeof(hid_raw_buf));
+                bytes_read = hid_read(hid_handle, xbox_raw_buf, sizeof(XboxOneJS::raw_type));
                 if (bytes_read < 0) {
                     throw "usb-hid plugged out";
-                } else if (bytes_read == 0) {
+                } else if (bytes_read != sizeof(XboxOneJS::raw_type)) {
                     throw "something wrong while reading usb-hid";
                 }
-                sbus_shared_buf.push([](uint8_t *sbus, size_t sz) -> void {
-                        xbox_one_adaptor(hid_raw_buf, (hlink_sbus_t*) sbus);
-                    });
+                xbox_one << xbox_raw_buf;
+                xbox_one.debug();
+                sbus_shared_buf.push([xbox_one](uint8_t *sbus_buf)
+                        { xbox_one >> (hlink_sbus_t*) sbus_buf; });
             } catch (const char *errstr) {
                 printf("\n%s", errstr);
                 fflush(stdout);
+                xbox_one.reset();
+                sbus_shared_buf.push([xbox_one](uint8_t *sbus_buf)
+                        { xbox_one >> (hlink_sbus_t*) (sbus_buf); });
                 hid_close(hid_handle);
-                sbus_shared_buf.push([](uint8_t *sbus, size_t sz) -> void {
-                        sbus[22] = 4; // lost controll
-                    });
                 g_hid_status.store(-1, memory_order_relaxed);
                 break;
             }
@@ -93,8 +87,7 @@ void thr_hlink(void) {
         g_pipe_mtx.unlock();
 
         while (true) {
-            sbus_shared_buf.fetch([](uint8_t *buf, size_t sz){
-                    if (sz < sizeof(hlink_sbus_t)) return;
+            sbus_shared_buf.fetch([](uint8_t *buf){
                     hlink_sbus_t *sbus = (hlink_sbus_t*) buf;
                     for (int i = 0; i < 4; i++) {
                         printf("%6hd,", (int16_t) sbus->channel[i]);
@@ -110,12 +103,6 @@ void thr_hlink(void) {
         close(pipe_fd);
         g_pipe_status.store(-1, memory_order_relaxed);
     }
-}
-
-char make_prompt(int status) {
-    return (status == 0) ? '*'
-        : (status > 0) ? '>'
-        : '!';
 }
 
 void cli_usbhid(int hid_status) {
@@ -191,6 +178,12 @@ void cli_pipe(int pipe_status) {
     }
 
     return;
+}
+
+char make_prompt(int status) {
+    return (status == 0) ? '*'
+        : (status > 0) ? '>'
+        : '!';
 }
 
 int main() {

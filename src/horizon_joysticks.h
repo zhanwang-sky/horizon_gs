@@ -1,12 +1,14 @@
 #ifndef _HORIZON_JOYSTICKS_H
 #define _HORIZON_JOYSTICKS_H
 
+#include <cstdio> // for debugging
 #include <array>
 #include "horizon_link.h"
 
 class HorizonJS {
 public:
     HorizonJS():
+        channel({ 0 }),
         lost_cntl(true),
         override_enabled(false),
         ap_activated(false) { }
@@ -27,6 +29,16 @@ public:
             if (override_enabled) { sbus->flags |= 1 << 1; }
             if (ap_activated) { sbus->flags |= 1 << 0; }
         }
+    }
+    virtual void debug() {
+        for (decltype(channel.size()) i = 0; i < channel.size(); i++) {
+            printf("%3.0f,", channel[i] * 100.f);
+        }
+        printf("%s,", lost_cntl ? "lost" : "    ");
+        printf("%s,", override_enabled ? "force" : "     ");
+        printf("%s", ap_activated ? "AP" : "  ");
+        printf("    \r");
+        fflush(stdout);
     }
 protected:
     std::array<float, 13> channel; // rudder, elevator, thrust, aileron ...
@@ -63,6 +75,18 @@ public:
         // convert to base format
         convert2base();
     }
+    virtual void debug() override {
+        printf("%6hd,", left_x);
+        printf("%6hd,", left_y);
+        printf("%6hd,", right_x);
+        printf("%6hd,", right_y);
+        printf("%3hhu,", lt);
+        printf("%3hhu,", rt);
+        printf("%02X,", curr_buttons1);
+        printf("%02X", curr_buttons2);
+        printf("    \r");
+        fflush(stdout);
+    }
 private:
     void convert2base() {
         // basic controll
@@ -84,6 +108,9 @@ private:
         // don't need to trim thrust
         trim |= (curr_buttons1 & 0x04) >> 1; // direction LEFT (aileron left roll)
         trim |= (curr_buttons1 & 0x08) >> 3; // direction RIGHT (aileron right roll)
+        // take over controll
+        lost_cntl = false;
+        // TODO: override?
         // auto-pilot
         if (!(curr_buttons2 & 0x04) && (prev_buttons2 & 0x04)) {
             // currently not pressed and previously pressed

@@ -24,14 +24,14 @@ public:
     SharedBuffer& operator=(const SharedBuffer&) = delete;
     SharedBuffer& operator=(SharedBuffer&&) = delete;
 
-    void push(const std::function<void(uint8_t*, size_t)> &f) {
+    void push(const std::function<void(uint8_t*)> &f) {
         size_t new_w_id = cal_new_w_id(w_buf_id.load(std::memory_order_relaxed),
                 r_buf_id.load(std::memory_order_relaxed));
-        f(buf[new_w_id], sz);
+        f(buf[new_w_id]);
         w_buf_id.store(new_w_id, std::memory_order_release);
     }
-    void fetch(const std::function<void(uint8_t*, size_t)> &f) {
-        f(buf[r_buf_id.load(std::memory_order_relaxed)], sz);
+    void fetch(const std::function<void(uint8_t*)> &f) {
+        f(buf[r_buf_id.load(std::memory_order_relaxed)]);
         r_buf_id.store(w_buf_id.load(std::memory_order_relaxed), std::memory_order_release);
     }
 private:
