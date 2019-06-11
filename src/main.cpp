@@ -60,7 +60,7 @@ void thr_hid(void) {
                     throw "something wrong while reading usb-hid";
                 }
                 xbox_one << xbox_raw_buf;
-                xbox_one.debug();
+                //xbox_one.HorizonJS::debug();
                 sbus_shared_buf.push([xbox_one](uint8_t *sbus_buf)
                         { xbox_one >> (hlink_sbus_t*) sbus_buf; });
             } catch (const char *errstr) {
@@ -87,15 +87,16 @@ void thr_hlink(void) {
         g_pipe_mtx.unlock();
 
         while (true) {
-            sbus_shared_buf.fetch([](uint8_t *buf){
+            sbus_shared_buf.fetch([](uint8_t *buf) {
                     hlink_sbus_t *sbus = (hlink_sbus_t*) buf;
-                    for (int i = 0; i < 4; i++) {
-                        printf("%6hd,", (int16_t) sbus->channel[i]);
+                    for (int i = 0; i < 16; i++) {
+                        printf("%4hd,", (int16_t) sbus->channel[i]);
                     }
-                    printf("\r");
+                    printf("%02hhX", sbus->flags);
+                    printf("        \r");
                     fflush(stdout);
                 });
-            this_thread::sleep_for(chrono::milliseconds(10));
+            this_thread::sleep_for(chrono::milliseconds(20));
         }
 
         printf("\npipe has closed");
