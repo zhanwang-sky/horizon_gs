@@ -47,60 +47,55 @@ void HorizonJS::debug() {
 // class XboxOneJS
 void XboxOneJS::operator<<(const raw_type raw_data) {
     // buttons
-    prev_buttons1 = curr_buttons1;
-    curr_buttons1 = raw_data[2];
-    prev_buttons2 = curr_buttons2;
-    curr_buttons2 = raw_data[3];
+    prev_buttons = curr_buttons;
+    curr_buttons = raw_data[2] | (raw_data[3] << 8);
     // triggers
-    lt = raw_data[4];
-    rt = raw_data[5];
+    trigger_lt = raw_data[4];
+    trigger_rt = raw_data[5];
     // joy sticks
-    left_x = raw_data[6] | (raw_data[7] << 8);
-    left_y = raw_data[8] | (raw_data[9] << 8);
-    right_x = raw_data[10] | (raw_data[11] << 8);
-    right_y = raw_data[12] | (raw_data[13] << 8);
+    stick_lx = raw_data[6] | (raw_data[7] << 8);
+    stick_ly = raw_data[8] | (raw_data[9] << 8);
+    stick_rx = raw_data[10] | (raw_data[11] << 8);
+    stick_ry = raw_data[12] | (raw_data[13] << 8);
     // convert to base format
     convert2base();
 }
 
 void XboxOneJS::debug() {
-    printf("%6hd,", left_x);
-    printf("%6hd,", left_y);
-    printf("%6hd,", right_x);
-    printf("%6hd,", right_y);
-    printf("%3hhu,", lt);
-    printf("%3hhu,", rt);
-    printf("%02X,", curr_buttons1);
-    printf("%02X", curr_buttons2);
+    printf("%04hX,", curr_buttons);
+    printf("%3hhu,", trigger_lt);
+    printf("%3hhu,", trigger_rt);
+    printf("%6hd,", stick_lx);
+    printf("%6hd,", stick_ly);
+    printf("%6hd,", stick_rx);
+    printf("%6hd", stick_ry);
     printf("    \r");
     fflush(stdout);
 }
 
 void XboxOneJS::convert2base() {
     // basic controll
-    channel[0] = (float(rt) - float(lt) + float(255)) / 510.f; // rudder
-    channel[1] = (right_y + 32768) / 65535.f; // elevator
-    channel[2] = (left_y + 32768) / 65535.f; // throttle
-    channel[3] = (right_x + 32768) / 65535.f; // aileron
+    channel[0] = (float(trigger_rt) - float(trigger_lt) + float(255)) / 510.f; // rudder
+    channel[1] = (stick_ry + 32768) / 65535.f; // elevator
+    channel[2] = (stick_ly + 32768) / 65535.f; // throttle
+    channel[3] = (stick_rx + 32768) / 65535.f; // aileron
     // custom
-    channel[4] = (left_x + 32768) / 65535.f;
+    channel[4] = (stick_lx + 32768) / 65535.f;
     // trim
     // high bit represents negative trim, low bit opposite direction.
     // if both directions' trim key are pressed, it takes the same effect as no key is pressed.
     trim = 0;
-    trim |= (curr_buttons2 & 0x01) << 7; // LB controlls left rudder trim
-    trim |= (curr_buttons2 & 0x02) << 5; // RB controlls right rudder trim
-    trim |= (curr_buttons1 & 0x01) << 5; // direction UP (elevator push down)
-    trim |= (curr_buttons1 & 0x02) << 3; // direction DOWN (elevator pull up)
-    // don't need to trim throttle
-    trim |= (curr_buttons1 & 0x04) >> 1; // direction LEFT (aileron left roll)
-    trim |= (curr_buttons1 & 0x08) >> 3; // direction RIGHT (aileron right roll)
+    if (is_pressed(button_lb)) { trim |= 0x80; }
+    if (is_pressed(button_rb)) { trim |= 0x40; }
+    if (is_pressed(button_up)) { trim |= 0x20; }
+    if (is_pressed(button_down)) { trim |= 0x10; }
+    if (is_pressed(button_left)) { trim |= 0x02; }
+    if (is_pressed(button_right)) { trim |= 0x01; }
     // take over controll
     lost_cntl = false;
     // TODO: override?
     // auto-pilot
-    if (!(curr_buttons2 & 0x04) && (prev_buttons2 & 0x04)) {
-        // currently not pressed and previously pressed
-        ap_activated = !ap_activated; // toggle
+    if (is_toggled(button_xbox)) {
+        ap_activated = !ap_activated;
     }
 }
